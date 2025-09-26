@@ -8,8 +8,9 @@ on:
     branches: [ main ]
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAME: vatsim-flight-analyzer
+  # Verwende GitHub Container Registry (kostenlos für public repos)
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
@@ -25,19 +26,20 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Docker Registry
+    # GitHub Container Registry Login (automatisch mit GITHUB_TOKEN)
+    - name: Log in to Container Registry
       if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
           type=ref,event=pr
@@ -68,7 +70,7 @@ jobs:
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: 'sarif'
         output: 'trivy-results.sarif'
     
@@ -80,8 +82,8 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [build, security-scan]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
     environment: production
 
     steps:
@@ -102,7 +104,7 @@ jobs:
           git pull origin main
           
           # Pull latest Docker image
-          docker compose pull
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
           # Restart services
           docker compose down
@@ -119,8 +121,8 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    needs: [build, deploy]
-    if: always()
+    needs: [build]
+    if: always() && vars.SLACK_NOTIFICATIONS == 'true'
     
     steps:
     - name: Notify deployment status
