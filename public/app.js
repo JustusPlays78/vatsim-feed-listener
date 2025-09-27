@@ -1,7 +1,8 @@
 // VATSIM Flight Analyzer JavaScript
 class FlightAnalyzer {
     constructor() {
-        this.apiBase = 'https://api.statsim.net/api/Flights/IcaoDestination';
+        // Verwende lokalen Proxy statt direkten API-Aufruf
+        this.apiBase = '/api/flights';
         this.init();
     }
 
@@ -10,11 +11,61 @@ class FlightAnalyzer {
         document.getElementById('searchForm').addEventListener('submit', this.handleSearch.bind(this));
         document.getElementById('icao').addEventListener('input', this.handleIcaoInput.bind(this));
         
+        // Dark Mode Toggle
+        document.getElementById('themeToggle').addEventListener('click', this.toggleTheme.bind(this));
+        
         // Standardwerte setzen
         this.setDefaultDates();
         
         // Auto-Format für ICAO Input
         this.setupIcaoFormatting();
+        
+        // Theme initialisieren
+        this.initTheme();
+    }
+
+    initTheme() {
+        // Gespeicherte Theme-Präferenz laden oder System-Präferenz verwenden
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        const theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        this.setTheme(theme);
+        
+        // System Theme Changes überwachen
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                this.setTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+    }
+
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        this.setTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        
+        // Schöne Animation für den Toggle
+        const button = document.getElementById('themeToggle');
+        button.style.transform = 'scale(0.8) rotate(180deg)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1) rotate(0deg)';
+        }, 200);
+    }
+
+    setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        const icon = document.getElementById('themeIcon');
+        const button = document.getElementById('themeToggle');
+        
+        if (theme === 'dark') {
+            icon.className = 'fas fa-sun';
+            button.title = 'Light Mode aktivieren';
+        } else {
+            icon.className = 'fas fa-moon';
+            button.title = 'Dark Mode aktivieren';
+        }
     }
 
     setDefaultDates() {
@@ -106,27 +157,28 @@ class FlightAnalyzer {
 
     async fetchFlights(icao, fromDateTime, toDateTime) {
         // Datumsformatierung für API
-        const fromFormatted = encodeURIComponent(new Date(fromDateTime).toISOString());
-        const toFormatted = encodeURIComponent(new Date(toDateTime).toISOString());
+        const fromFormatted = new Date(fromDateTime).toISOString();
+        const toFormatted = new Date(toDateTime).toISOString();
         
-        const url = `${this.apiBase}?icao=${icao}&from=${fromFormatted}&to=${toFormatted}`;
+        const url = `${this.apiBase}?icao=${icao}&from=${encodeURIComponent(fromFormatted)}&to=${encodeURIComponent(toFormatted)}`;
         
         this.showAlert('success', `
             <i class="fas fa-satellite-dish me-2"></i>
             <strong>API-Aufruf wird durchgeführt...</strong><br>
-            <small><a href="${url}" target="_blank" class="text-decoration-none">Daten von STATSIM API laden</a></small>
+            <small>Daten werden über lokalen Proxy von STATSIM API geladen</small>
         `);
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'User-Agent': 'VATSIM-Flight-Analyzer/1.0'
+                'Content-Type': 'application/json'
             }
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
         }
 
         const flights = await response.json();
@@ -167,8 +219,19 @@ class FlightAnalyzer {
 
     displayStatistics(flights) {
         const totalFlights = flights.length;
-        const arrivedFlights = flights.filter(f => f.arrived).length;
-        const departedFlights = flights.filter(f => f.departed).length;
+        
+        // Korrekte Berechnung: Flüge die bereits angekommen sind (haben arrived Timestamp)
+        const arrivedFlights = flights.filter(f => f.arrived && f.arrived !== null && f.arrived !== '').length;
+        
+        // Korrekte Berechnung: Flüge die bereits abgeflogen sind (haben departed Timestamp)
+        const departedFlights = flights.filter(f => f.departed && f.departed !== null && f.departed !== '').length;
+        
+        // Flüge die noch in der Luft sind (abgeflogen aber noch nicht angekommen)
+        const inFlightFlights = flights.filter(f => 
+            (f.departed && f.departed !== null && f.departed !== '') && 
+            (!f.arrived || f.arrived === null || f.arrived === '')
+        ).length;
+        
         const uniqueAirports = new Set(flights.map(f => f.departure)).size;
 
         const statsHtml = `
@@ -181,8 +244,8 @@ class FlightAnalyzer {
                 <div class="stat-label">Angekommen</div>
             </div>
             <div class="stat-card">
-                <span class="stat-number">${departedFlights}</span>
-                <div class="stat-label">Abgeflogen</div>
+                <span class="stat-number">${inFlightFlights}</span>
+                <div class="stat-label">In der Luft</div>
             </div>
             <div class="stat-card">
                 <span class="stat-number">${uniqueAirports}</span>
@@ -191,6 +254,15 @@ class FlightAnalyzer {
         `;
 
         document.getElementById('statsGrid').innerHTML = statsHtml;
+        
+        // Debug-Ausgabe für besseres Verständnis
+        console.log('Statistik Debug:', {
+            total: totalFlights,
+            arrived: arrivedFlights,
+            departed: departedFlights,
+            inFlight: inFlightFlights,
+            airports: uniqueAirports
+        });
     }
 
     displayTopAirports(flights) {

@@ -53,10 +53,14 @@ Thumbs.db
 # Docker
 .dockerignore
 
-# Build output
+# Build output (aber nicht public/)
 dist/
 build/
 
 # Temporary files
 tmp/
 temp/
+
+# Legacy files (PHP version)
+vatsim_flights.php
+nginx.conf

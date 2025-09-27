@@ -1,8 +1,9 @@
 # VATSIM Flight Analyzer
 
-Eine moderne, dockerisierte Web-Anwendung zur Analyse von VATSIM-Flugdaten mit der STATSIM API.
+Eine moderne, dockerisierte Web-Anwendung zur Analyse von VATSIM-Flugdaten mit der STATSIM API. Verwendet Node.js/Express Backend mit CORS-Proxy für nahtlose API-Integration.
 
 ![VATSIM Flight Analyzer](https://img.shields.io/badge/VATSIM-Flight%20Analyzer-blue)
+![Node.js](https://img.shields.io/badge/Node.js-Backend-green)
 ![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -11,10 +12,10 @@ Eine moderne, dockerisierte Web-Anwendung zur Analyse von VATSIM-Flugdaten mit d
 - **🎨 Modernes UI**: Bootstrap 5 mit custom CSS für professionelles Aussehen
 - **📊 Live-Statistiken**: Gesamtflüge, Ankünfte, Abflüge und Top-Abflughäfen
 - **📱 Responsive Design**: Optimiert für Desktop und Mobile
-- **🔄 Real-time API**: Direkte Integration mit STATSIM API
-- **⚡ Performance**: Nginx-basiert mit Caching und Kompression
+- **🔄 Real-time API**: Node.js Proxy für CORS-freie STATSIM API Integration
+- **⚡ Performance**: Express.js mit automatischem Caching
 - **🐳 Docker Ready**: Vollständig containerisiert für einfaches Deployment
-- **🔐 Sicherheit**: Moderne Security Headers und CORS-Unterstützung
+- **🔐 Sicherheit**: CORS-Unterstützung und sichere API-Proxying
 
 ## 🚀 Quick Start
 
@@ -22,8 +23,8 @@ Eine moderne, dockerisierte Web-Anwendung zur Analyse von VATSIM-Flugdaten mit d
 
 ```bash
 # Repository klonen
-git clone https://your-gitea-instance.com/user/datalivefeedvatsim.git
-cd datalivefeedvatsim
+git clone https://github.com/JustusPlays78/vatsim-feed-listener.git
+cd vatsim-feed-listener
 
 # Container starten
 docker compose up -d
@@ -35,11 +36,35 @@ open http://localhost:9080
 ### Lokale Entwicklung
 
 ```bash
-# Dateien in Webserver-Ordner kopieren
-cp index.html app.js /var/www/html/
+# Dependencies installieren
+npm install
 
-# Oder Python-Server für lokale Tests
-python -m http.server 8000
+# Development Server starten
+npm run dev
+
+# Oder Production Server
+npm start
+
+# Anwendung öffnen
+open http://localhost:3000
+```
+
+## 🏗️ Architektur
+
+### Backend (Node.js/Express)
+```
+server.js               # Haupt-Server mit API-Proxy
+├── /api/flights       # STATSIM API Proxy Endpoint
+├── /health            # Health Check
+└── /*                 # SPA Fallback
+```
+
+### Frontend (Vanilla JS)
+```
+public/
+├── index.html         # Haupt-HTML mit Bootstrap UI
+├── app.js            # JavaScript-Logik
+└── favicon.svg       # App-Icon
 ```
 
 ## 🐳 Docker Deployment

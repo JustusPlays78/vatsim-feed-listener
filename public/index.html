@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VATSIM Flugdaten Analyzer</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="alternate icon" href="/favicon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -24,23 +26,69 @@
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
 
+        /* Dark Mode Variables */
+        [data-theme="dark"] {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --light-bg: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            background: linear-gradient(135deg, var(--light-bg) 0%, var(--border-color) 100%);
             min-height: 100vh;
             color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         }
 
         .navbar {
             background: var(--card-bg);
             box-shadow: var(--shadow-sm);
             border-bottom: 1px solid var(--border-color);
+            transition: all 0.3s ease;
         }
 
         .navbar-brand {
             font-weight: 700;
             color: var(--primary-color) !important;
             font-size: 1.5rem;
+        }
+
+        .theme-toggle {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: scale(1.1);
         }
 
         .main-container {
@@ -71,16 +119,33 @@
         }
 
         .form-control {
+            background: var(--card-bg);
             border: 2px solid var(--border-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
             font-size: 0.95rem;
+            color: var(--text-primary);
             transition: all 0.3s ease;
         }
 
         .form-control:focus {
+            background: var(--card-bg);
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
+            color: var(--text-primary);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .form-label {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .form-text {
+            color: var(--text-secondary);
         }
 
         .btn-primary {
@@ -156,13 +221,17 @@
         }
 
         .airport-card {
-            background: linear-gradient(135deg, #f8fafc, #ffffff);
+            background: linear-gradient(135deg, var(--light-bg), var(--card-bg));
             padding: 1rem;
             border-radius: 8px;
             border: 1px solid var(--border-color);
             text-align: center;
             transition: all 0.3s ease;
             position: relative;
+        }
+
+        [data-theme="dark"] .airport-card {
+            background: linear-gradient(135deg, var(--card-bg), #334155);
         }
 
         .airport-card:hover {
@@ -192,32 +261,48 @@
 
         .table {
             margin-bottom: 0;
+            color: var(--text-primary) !important;
+            --bs-table-bg: var(--card-bg);
+            --bs-table-border-color: var(--border-color);
         }
 
         .table thead th {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-            color: white;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover)) !important;
+            color: white !important;
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.85rem;
             letter-spacing: 0.5px;
-            border: none;
+            border: none !important;
             padding: 1rem 0.75rem;
         }
 
         .table tbody tr {
             transition: all 0.3s ease;
+            border-color: var(--border-color) !important;
+            background-color: var(--card-bg) !important;
         }
 
         .table tbody tr:hover {
-            background-color: #f1f5f9;
+            background-color: var(--border-color) !important;
             transform: scale(1.01);
+        }
+
+        [data-theme="dark"] .table tbody tr:hover {
+            background-color: #334155 !important;
         }
 
         .table td {
             padding: 1rem 0.75rem;
             vertical-align: middle;
-            border-color: var(--border-color);
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+            background-color: transparent !important;
+        }
+
+        [data-theme="dark"] .table {
+            --bs-table-bg: var(--card-bg);
+            --bs-table-color: var(--text-primary);
         }
 
         .callsign {
@@ -229,19 +314,28 @@
         .airport-code-table {
             font-weight: 600;
             color: var(--text-primary);
-            background: #f1f5f9;
+            background: var(--border-color);
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
             font-family: 'Monaco', 'Menlo', monospace;
         }
 
+        [data-theme="dark"] .airport-code-table {
+            background: #334155;
+            color: var(--text-primary);
+        }
+
         .aircraft-type {
             font-family: 'Monaco', 'Menlo', monospace;
             font-size: 0.9rem;
-            background: #f8fafc;
+            background: var(--border-color);
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
             color: var(--text-secondary);
+        }
+
+        [data-theme="dark"] .aircraft-type {
+            background: #334155;
         }
 
         .status-departed {
@@ -268,12 +362,16 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.5);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 9999;
             backdrop-filter: blur(4px);
+        }
+
+        [data-theme="dark"] .loading-overlay {
+            background: rgba(0, 0, 0, 0.8);
         }
 
         .loading-content {
@@ -282,6 +380,16 @@
             background: var(--card-bg);
             border-radius: 12px;
             box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .loading-content h5,
+        .loading-content p {
+            color: var(--text-primary);
+        }
+
+        .loading-content .text-muted {
+            color: var(--text-secondary) !important;
         }
 
         .loading-spinner {
@@ -303,18 +411,44 @@
             border-radius: 8px;
             font-weight: 500;
             padding: 1rem 1.25rem;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
 
         .alert-danger {
             background: linear-gradient(135deg, #fef2f2, #fee2e2);
-            border: 1px solid #fecaca;
+            border-color: #fecaca;
             color: var(--danger-color);
+        }
+
+        [data-theme="dark"] .alert-danger {
+            background: linear-gradient(135deg, #1f2937, #374151);
+            border-color: #ef4444;
+            color: #fca5a5;
         }
 
         .alert-success {
             background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-            border: 1px solid #bbf7d0;
+            border-color: #bbf7d0;
             color: var(--success-color);
+        }
+
+        [data-theme="dark"] .alert-success {
+            background: linear-gradient(135deg, #1f2937, #374151);
+            border-color: #22c55e;
+            color: #86efac;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+            border-color: #fcd34d;
+            color: var(--warning-color);
+        }
+
+        [data-theme="dark"] .alert-warning {
+            background: linear-gradient(135deg, #1f2937, #374151);
+            border-color: #f59e0b;
+            color: #fbbf24;
         }
 
         .fade-in {
@@ -330,6 +464,10 @@
             padding: 0.4rem 0.8rem;
             font-weight: 600;
             font-size: 0.75rem;
+        }
+
+        .text-muted {
+            color: var(--text-secondary) !important;
         }
 
         @media (max-width: 768px) {
@@ -349,6 +487,12 @@
                 grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
                 gap: 0.5rem;
             }
+
+            .theme-toggle {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -359,7 +503,10 @@
                 <i class="fas fa-plane-departure me-2"></i>
                 VATSIM Flight Analyzer
             </a>
-            <div class="ms-auto">
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="theme-toggle" title="Dark/Light Mode umschalten">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
                 <span class="badge bg-primary">
                     <i class="fas fa-satellite-dish me-1"></i>
                     Live Data

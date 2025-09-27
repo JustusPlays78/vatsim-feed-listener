@@ -5,14 +5,14 @@ services:
     build: .
     container_name: vatsim-flight-analyzer
     ports:
-      - "9080:80"
+      - "9080:3000"
     environment:
-      - NGINX_HOST=localhost
-      - NGINX_PORT=80
+      - NODE_ENV=production
+      - PORT=3000
     volumes:
       # Optional: Für lokale Entwicklung
-      - ./index.html:/usr/share/nginx/html/index.html:ro
-      - ./app.js:/usr/share/nginx/html/app.js:ro
+      - ./public:/app/public:ro
+      - ./server.js:/app/server.js:ro
     restart: unless-stopped
     networks:
       - web
@@ -21,7 +21,7 @@ services:
       - "traefik.http.routers.vatsim-analyzer.rule=Host(`moehre.intjulscha.de`)"
       - "traefik.http.routers.vatsim-analyzer.entrypoints=websecure"
       - "traefik.http.routers.vatsim-analyzer.tls.certresolver=letsencrypt"
-      - "traefik.http.services.vatsim-analyzer.loadbalancer.server.port=80"
+      - "traefik.http.services.vatsim-analyzer.loadbalancer.server.port=3000"
 
 networks:
   web:
