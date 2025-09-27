@@ -1,5 +1,5 @@
 # Multi-stage build für optimierte Node.js App
-FROM node:18-alpine as builder
+FROM node:18-alpine AS builder
 
 # Arbeitsverzeichnis setzen
 WORKDIR /app
@@ -7,8 +7,8 @@ WORKDIR /app
 # Package files kopieren
 COPY package*.json ./
 
-# Dependencies installieren
-RUN npm ci --only=production && npm cache clean --force
+# Dependencies installieren (neuere npm Syntax)
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Production Stage
 FROM node:18-alpine
@@ -21,21 +21,21 @@ LABEL maintainer="VATSIM Flight Analyzer" \
 
 # Non-root user erstellen
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+    adduser -S nodeapp -u 1001 -G nodejs
 
 # App-Verzeichnis erstellen
 WORKDIR /app
 
 # Dependencies kopieren
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodeapp:nodejs /app/node_modules ./node_modules
 
 # App-Dateien kopieren
-COPY --chown=nextjs:nodejs package*.json ./
-COPY --chown=nextjs:nodejs server.js ./
-COPY --chown=nextjs:nodejs public ./public
+COPY --chown=nodeapp:nodejs package*.json ./
+COPY --chown=nodeapp:nodejs server.js ./
+COPY --chown=nodeapp:nodejs public ./public
 
 # User wechseln
-USER nextjs
+USER nodeapp
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
