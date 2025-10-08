@@ -15,9 +15,9 @@
     "test:ui": "vitest --ui",
     "type-check": "tsc --noEmit",
     "precommit": "npm run type-check && npm run lint",
+    "postinstall": "husky install || true",
     "server": "cd server-standalone && npm install && npm start",
-    "server:dev": "cd server-standalone && npm install && npm run dev",
-    "prepare": "husky install"
+    "server:dev": "cd server-standalone && npm install && npm run dev"
   },
   "dependencies": {
     "clsx": "^2.0.0",
