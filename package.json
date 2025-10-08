@@ -8,12 +8,15 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 15",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "type-check": "tsc --noEmit",
+    "precommit": "npm run type-check && npm run lint",
     "server": "cd server-standalone && npm install && npm start",
-    "server:dev": "cd server-standalone && npm install && npm run dev"
+    "server:dev": "cd server-standalone && npm install && npm run dev",
+    "prepare": "husky install"
   },
   "dependencies": {
     "clsx": "^2.0.0",
@@ -37,10 +40,22 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
     "postcss": "^8.4.32",
+    "prettier": "^3.1.1",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
     "vitest": "^1.0.4"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

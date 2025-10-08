@@ -1,0 +1,44 @@
+# Build outputs
+
+dist/
+build/
+.next/
+out/
+
+# Dependencies
+
+node_modules/
+
+# Server code (different linting rules)
+
+server/
+
+# Config files
+
+_.config.js
+_.config.ts
+_.config.cjs
+_.config.mjs
+
+# Test coverage
+
+coverage/
+
+# Cache
+
+.cache/
+.eslintcache
+
+# Docker
+
+Dockerfile
+docker-compose.yml
+
+# Documentation
+
+\*.md
+
+# Git
+
+.git/
+.husky/

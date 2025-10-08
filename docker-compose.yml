@@ -3,44 +3,72 @@ version: '3.8'
 services:
   # Backend API Server
   backend:
-    image: node:18-alpine
-    working_dir: /app
-    volumes:
-      - ./server-standalone:/app
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: vatsim-analyzer-backend
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       - PORT=3001
       - NODE_ENV=production
-    command: node server.js
+    volumes:
+      # Persist event cache across restarts
+      - ./server/event-cache.json:/app/event-cache.json
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:3001/api/vatsim/data',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
     restart: unless-stopped
+    networks:
+      - vatsim-network
 
-  # React Frontend
+  # React Frontend with Nginx
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:3001
+    container_name: vatsim-analyzer-frontend
     ports:
-      - "80:80"
-    environment:
-      - VITE_API_BASE_URL=http://backend:3001/api
+      - '80:80'
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost/',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - vatsim-network
 
 networks:
-  default:
+  vatsim-network:
     name: vatsim-analyzer-network
+    driver: bridge
+
+volumes:
+  event-cache:
+    driver: local
