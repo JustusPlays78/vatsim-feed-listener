@@ -1,238 +1,305 @@
-# VATSIM Flight Analyzer
+# VATSIM Flight Analyzer - React Migration
 
-Eine moderne, dockerisierte Web-Anwendung zur Analyse von VATSIM-Flugdaten mit der STATSIM API. Verwendet Node.js/Express Backend mit CORS-Proxy für nahtlose API-Integration.
+## 🎯 Project Overview
 
-![VATSIM Flight Analyzer](https://img.shields.io/badge/VATSIM-Flight%20Analyzer-blue)
-![Node.js](https://img.shields.io/badge/Node.js-Backend-green)
-![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+This is the **React + TypeScript** migration of the VATSIM Flight Analyzer. The original Vanilla JS version is preserved in the `public/` folder.
 
-## ✈️ Features
+### Tech Stack
+- ⚡ **Vite** - Fast build tool
+- ⚛️ **React 18** - UI library
+- 📘 **TypeScript** - Type safety
+- 🎨 **Tailwind CSS** - Utility-first CSS
+- 🐻 **Zustand** - Lightweight state management
+- 🧭 **React Router** - Client-side routing
+- 🧪 **Vitest** - Unit testing
 
-- **🎨 Modernes UI**: Bootstrap 5 mit custom CSS für professionelles Aussehen
-- **📊 Live-Statistiken**: Gesamtflüge, Ankünfte, Abflüge und Top-Abflughäfen
-- **📱 Responsive Design**: Optimiert für Desktop und Mobile
-- **🔄 Real-time API**: Node.js Proxy für CORS-freie STATSIM API Integration
-- **⚡ Performance**: Express.js mit automatischem Caching
-- **🐳 Docker Ready**: Vollständig containerisiert für einfaches Deployment
-- **🔐 Sicherheit**: CORS-Unterstützung und sichere API-Proxying
+---
 
 ## 🚀 Quick Start
 
-### Mit Docker Compose (Empfohlen)
+### Prerequisites
+- Node.js >= 16.0.0
+- npm >= 8.0.0
+
+### Installation
 
 ```bash
-# Repository klonen
-git clone https://github.com/JustusPlays78/vatsim-feed-listener.git
-cd vatsim-feed-listener
-
-# Container starten
-docker compose up -d
-
-# Anwendung öffnen
-open http://localhost:9080
+cd react-app
+npm install
 ```
 
-### Lokale Entwicklung
+### Development
 
 ```bash
-# Dependencies installieren
-npm install
-
-# Development Server starten
+# Start React dev server (Port 3000)
 npm run dev
 
-# Oder Production Server
-npm start
-
-# Anwendung öffnen
-open http://localhost:3000
+# Start backend server (Port 3001) - IN SEPARATE TERMINAL
+cd ..
+npm run dev
 ```
 
-## 🏗️ Architektur
+Open [http://localhost:3000](http://localhost:3000)
 
-### Backend (Node.js/Express)
-```
-server.js               # Haupt-Server mit API-Proxy
-├── /api/flights       # STATSIM API Proxy Endpoint
-├── /health            # Health Check
-└── /*                 # SPA Fallback
+### Production Build
+
+```bash
+npm run build
+npm run preview
 ```
 
-### Frontend (Vanilla JS)
+---
+
+## 📁 Project Structure
+
 ```
-public/
-├── index.html         # Haupt-HTML mit Bootstrap UI
-├── app.js            # JavaScript-Logik
-└── favicon.svg       # App-Icon
+react-app/
+├── src/
+│   ├── components/          # React components
+│   │   ├── Header.tsx
+│   │   ├── SearchForm.tsx
+│   │   ├── FlightResults.tsx
+│   │   ├── FlightTable.tsx
+│   │   ├── Statistics.tsx
+│   │   └── ExportButtons.tsx
+│   ├── hooks/              # Custom React hooks
+│   │   ├── useFlightData.ts
+│   │   ├── useKeyboardShortcuts.ts
+│   │   └── index.ts
+│   ├── services/           # API services
+│   │   └── flightService.ts
+│   ├── store/              # Zustand state management
+│   │   └── index.ts
+│   ├── types/              # TypeScript types
+│   │   └── index.ts
+│   ├── utils/              # Utility functions
+│   │   ├── exportHelpers.ts
+│   │   └── dateHelpers.ts
+│   ├── App.tsx             # Main app component
+│   ├── main.tsx            # Entry point
+│   └── index.css           # Global styles
+├── public/                 # Static assets
+├── index.html
+├── vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json
+└── package.json
 ```
+
+---
+
+## 🏗️ Architecture
+
+### State Management (Zustand)
+- `useCacheStore` - Client-side caching with 5min TTL
+- `useFlightStore` - Flight data, loading states, errors
+- `useFavoritesStore` - Persisted favorite airports (localStorage)
+- `useThemeStore` - Dark/light theme (persisted)
+
+### Custom Hooks
+- `useFlightData` - Fetch and cache flight data
+- `useKeyboardShortcuts` - Global keyboard shortcuts
+
+### API Service
+- `FlightService.fetchFlights()` - Proxied STATSIM API calls
+
+---
+
+## 🎨 Features Implemented
+
+### ✅ Core Features
+- [x] Flight search by ICAO code and date range
+- [x] Real-time flight data from STATSIM API
+- [x] Client-side caching (5 min TTL)
+- [x] Dark/light theme toggle
+- [x] Responsive design
+
+### ✅ Quality of Life
+- [x] URL-based deep linking
+- [x] Keyboard shortcuts (Ctrl+Enter, ESC, /)
+- [x] CSV/JSON export
+- [x] Statistics dashboard
+- [x] Top departure airports
+
+### 🚧 Planned Features
+- [ ] Favorite airports quick-select
+- [ ] Sortable table columns
+- [ ] Advanced filtering
+- [ ] Live map visualization
+- [ ] PWA support
+
+---
+
+## 🛠️ Development
+
+### Commands
+
+```bash
+npm run dev          # Start dev server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+npm run type-check   # TypeScript type checking
+npm run test         # Run tests
+npm run test:ui      # Run tests with UI
+```
+
+### Environment Variables
+
+Create `.env` file in `react-app/`:
+
+```env
+VITE_API_BASE_URL=http://localhost:3001/api
+VITE_CACHE_TTL=300000
+```
+
+---
 
 ## 🐳 Docker Deployment
 
-### Production Deployment
+### Option 1: React Only (Development)
 
-```bash
-# Image bauen
-docker build -t vatsim-flight-analyzer .
+```dockerfile
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY react-app/package*.json ./
+RUN npm ci
+COPY react-app/ ./
+RUN npm run build
 
-# Container starten
-docker run -d \
-  --name vatsim-analyzer \
-  -p 9080:80 \
-  --restart unless-stopped \
-  vatsim-flight-analyzer
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx-react.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
 ```
 
-### Mit Traefik Reverse Proxy
+### Option 2: Full Stack (React + Node Backend)
 
 ```yaml
 version: '3.8'
 services:
-  vatsim-flight-analyzer:
-    build: .
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.vatsim-analyzer.rule=Host(`your-domain.com`)"
-      - "traefik.http.routers.vatsim-analyzer.entrypoints=websecure"
-      - "traefik.http.routers.vatsim-analyzer.tls.certresolver=letsencrypt"
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+  
+  frontend:
+    build:
+      context: ./react-app
+      dockerfile: Dockerfile.react
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_BASE_URL=http://backend:3000/api
 ```
-
-## 🔧 Konfiguration
-
-### Umgebungsvariablen
-
-| Variable | Beschreibung | Default |
-|----------|-------------|---------|
-| `NGINX_HOST` | Nginx Host | `localhost` |
-| `NGINX_PORT` | Nginx Port | `80` |
-
-### CORS Konfiguration
-
-Die Anwendung ist so konfiguriert, dass sie CORS für API-Aufrufe unterstützt. Für produktive Umgebungen sollten Sie die CORS-Einstellungen in der `nginx.conf` anpassen.
-
-## 🛠️ Entwicklung
-
-### Projektstruktur
-
-```
-datalivefeedvatsim/
-├── index.html          # Haupt-HTML-Datei
-├── app.js             # JavaScript-Logik
-├── Dockerfile         # Docker-Konfiguration
-├── nginx.conf         # Nginx-Konfiguration
-├── docker-compose.yml # Docker Compose Setup
-└── .github/
-    └── workflows/
-        └── deploy.yml # CI/CD Pipeline
-```
-
-### API Integration
-
-Die Anwendung nutzt die STATSIM API:
-
-```javascript
-const apiUrl = 'https://api.statsim.net/api/Flights/IcaoDestination';
-const response = await fetch(`${apiUrl}?icao=${icao}&from=${from}&to=${to}`);
-```
-
-### Lokale Entwicklung
-
-```bash
-# Mit Live-Reload (empfohlen für Entwicklung)
-docker compose -f docker-compose.dev.yml up
-
-# Oder direkt mit nginx
-docker run -d \
-  --name vatsim-dev \
-  -p 8080:80 \
-  -v $(pwd):/usr/share/nginx/html \
-  nginx:alpine
-```
-
-## 📊 Performance
-
-- **Gzip-Kompression**: Alle Assets werden komprimiert
-- **Caching**: 1-Jahr Cache für statische Assets
-- **HTTP/2 Support**: Via nginx
-- **Minimal Container**: Alpine Linux für kleine Images
-
-## 🔐 Sicherheit
-
-- **Security Headers**: CSP, HSTS, X-Frame-Options
-- **No Server Tokens**: Nginx-Version wird nicht preisgegeben
-- **Input Validation**: Client- und serverseitig
-- **HTTPS Ready**: Vorbereitet für SSL/TLS
-
-## 🚦 CI/CD
-
-Die GitHub Actions Pipeline bietet:
-
-- **Automated Building**: Multi-Platform Docker Images
-- **Security Scanning**: Trivy Vulnerability Scanner
-- **Deployment**: Automatisches Deploy auf Production
-- **Notifications**: Slack-Benachrichtigungen
-
-### Secrets für GitHub Actions
-
-```bash
-DOCKER_USERNAME=your-docker-username
-DOCKER_PASSWORD=your-docker-token
-DEPLOY_HOST=your-server-ip
-DEPLOY_USER=deployment-user
-DEPLOY_KEY=your-ssh-private-key
-DEPLOY_PORT=22
-SLACK_WEBHOOK_URL=your-slack-webhook
-```
-
-## 🐛 Troubleshooting
-
-### Häufige Probleme
-
-1. **CORS-Fehler**: Prüfen Sie die nginx.conf CORS-Einstellungen
-2. **API nicht erreichbar**: Firewall/Netzwerk-Konfiguration prüfen
-3. **Container startet nicht**: Logs prüfen mit `docker logs vatsim-analyzer`
-
-### Debugging
-
-```bash
-# Container-Logs anzeigen
-docker logs -f vatsim-flight-analyzer
-
-# In Container einloggen
-docker exec -it vatsim-flight-analyzer sh
-
-# Nginx-Konfiguration testen
-docker exec vatsim-flight-analyzer nginx -t
-```
-
-## 📝 Changelog
-
-### v1.0.0 (2025-09-27)
-- 🎉 Initial Release
-- ✨ Moderne HTML/JS-Anwendung
-- 🐳 Docker-Support
-- 📊 STATSIM API Integration
-- 🎨 Responsive Bootstrap UI
-
-## 🤝 Contributing
-
-1. Fork das Repository
-2. Feature Branch erstellen (`git checkout -b feature/awesome-feature`)
-3. Changes committen (`git commit -m 'Add awesome feature'`)
-4. Branch pushen (`git push origin feature/awesome-feature`)
-5. Pull Request erstellen
-
-## 📄 License
-
-Dieses Projekt steht unter der MIT License - siehe [LICENSE](LICENSE) für Details.
-
-## 🙏 Acknowledgments
-
-- [VATSIM](https://vatsim.net/) für das Flight Simulation Network
-- [STATSIM](https://api.statsim.net/) für die API
-- [Bootstrap](https://getbootstrap.com/) für das UI Framework
-- [Font Awesome](https://fontawesome.com/) für die Icons
 
 ---
 
-**Made with ❤️ for the VATSIM Community**
+## 🧪 Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Test Structure
+
+```
+src/
+├── components/
+│   ├── __tests__/
+│   │   ├── Header.test.tsx
+│   │   ├── SearchForm.test.tsx
+│   │   └── FlightTable.test.tsx
+├── hooks/
+│   └── __tests__/
+│       └── useFlightData.test.ts
+└── utils/
+    └── __tests__/
+        └── exportHelpers.test.ts
+```
+
+---
+
+## 📝 Migration Notes
+
+### From Vanilla JS to React
+
+**What Changed:**
+1. **State Management**: Vanilla JS class → Zustand stores
+2. **Theme System**: CSS variables + data-attribute → Tailwind + class toggle
+3. **Event Handling**: Manual DOM listeners → React event props
+4. **Routing**: `window.history.pushState` → React Router
+5. **Styling**: Inline `<style>` + Bootstrap → Tailwind CSS utility classes
+
+**What Stayed:**
+- Backend server (`server.js`) - unchanged
+- API proxy structure
+- STATSIM API integration
+- Core business logic
+
+### Performance Improvements
+- Code splitting with Vite
+- Tree shaking
+- Lazy loading of components
+- Optimized re-renders with React.memo
+
+---
+
+## 🔒 Security
+
+- TypeScript for type safety
+- Input sanitization on client and server
+- CORS configured correctly
+- No sensitive data in localStorage
+- CSP headers in production
+
+---
+
+## 📚 Resources
+
+- [React Documentation](https://react.dev/)
+- [Vite Guide](https://vitejs.dev/guide/)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [React Router](https://reactrouter.com/)
+
+---
+
+## 🤝 Contributing
+
+1. Create feature branch from `main`
+2. Make changes in `react-app/` directory
+3. Run tests and linting
+4. Submit PR with description
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](../LICENSE) for details
+
+---
+
+**Next Steps:**
+1. Install dependencies: `npm install`
+2. Start dev servers (backend + frontend)
+3. Visit http://localhost:3000
+4. Read component documentation in `/docs`
