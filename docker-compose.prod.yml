@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Backend API Server
+  vatsim-backend:
+    image: node:18-alpine
+    container_name: vatsim-analyzer-backend
+    restart: always
+    working_dir: /app
+    ports:
+      - '3001:3001'
+    volumes:
+      # Mount server code and cache
+      - ./server:/app:ro
+      - vatsim-event-cache:/app/event-cache.json
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    command: sh -c "npm ci --production --ignore-scripts && node server.js"
+    networks:
+      - vatsim-network
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:3001/api/vatsim/data',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # React Frontend with Nginx
+  vatsim-frontend:
+    image: ghcr.io/justusplays78/vatsim-feed-listener:latest
+    container_name: vatsim-analyzer-frontend
+    restart: always
+    ports:
+      - '9080:80'
+    depends_on:
+      vatsim-backend:
+        condition: service_healthy
+    networks:
+      - vatsim-network
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost/',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  vatsim-network:
+    name: vatsim-analyzer-network
+    driver: bridge
+
+volumes:
+  vatsim-event-cache:
+    driver: local
