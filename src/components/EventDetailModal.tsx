@@ -158,7 +158,7 @@ export function EventDetailModal({
 
       // Query STATSIM API via our backend proxy
       const response = await fetch(
-        `http://localhost:3001/api/statsim/flights/dates?from=${startTime.toISOString()}&to=${endTime.toISOString()}`
+        `/api/statsim/flights/dates?from=${startTime.toISOString()}&to=${endTime.toISOString()}`
       );
 
       if (!response.ok) {

@@ -116,7 +116,7 @@ export default function EventDetailPage() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/events');
+      const response = await fetch('/api/events');
       if (!response.ok) {
         throw new Error(`Failed to fetch events: ${response.statusText}`);
       }
@@ -154,7 +154,7 @@ export default function EventDetailPage() {
         const queryEnd = new Date(eventEnd.getTime() + 30 * 60 * 1000);
 
         const response = await fetch(
-          `http://localhost:3001/api/statsim/flights/dates?from=${queryStart.toISOString()}&to=${queryEnd.toISOString()}`
+          `/api/statsim/flights/dates?from=${queryStart.toISOString()}&to=${queryEnd.toISOString()}`
         );
 
         if (!response.ok) {
@@ -182,7 +182,7 @@ export default function EventDetailPage() {
           const queryEnd = now;
 
           const statsimResponse = await fetch(
-            `http://localhost:3001/api/statsim/flights/dates?from=${queryStart.toISOString()}&to=${queryEnd.toISOString()}`
+            `/api/statsim/flights/dates?from=${queryStart.toISOString()}&to=${queryEnd.toISOString()}`
           );
 
           if (statsimResponse.ok) {
@@ -194,7 +194,7 @@ export default function EventDetailPage() {
         // Fetch current live data
         const airportIcaos = event.airports.map((a) => a.icao);
         const trafficPromises = airportIcaos.map((icao) =>
-          fetch(`http://localhost:3001/api/flights?icao=${icao}`)
+          fetch(`/api/flights?icao=${icao}`)
             .then((res) => res.json())
             .catch(() => [])
         );
