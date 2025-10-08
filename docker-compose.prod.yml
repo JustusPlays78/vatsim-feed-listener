@@ -10,13 +10,16 @@ services:
     ports:
       - '3001:3001'
     volumes:
-      # Mount server code and cache
-      - ./server:/app:ro
-      - vatsim-event-cache:/app/event-cache.json
+      # Mount server code (readonly)
+      - ./server/server.js:/app/server.js:ro
+      - ./server/package.json:/app/package.json:ro
+      - ./server/package-lock.json:/app/package-lock.json:ro
+      # Persistent cache directory
+      - ./data:/app
     environment:
       - PORT=3001
       - NODE_ENV=production
-    command: sh -c "npm ci --production --ignore-scripts && node server.js"
+    command: sh -c "npm ci --omit=dev --ignore-scripts && node server.js"
     networks:
       - vatsim-network
     healthcheck:
@@ -65,7 +68,3 @@ networks:
   vatsim-network:
     name: vatsim-analyzer-network
     driver: bridge
-
-volumes:
-  vatsim-event-cache:
-    driver: local

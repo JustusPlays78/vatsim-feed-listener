@@ -18,6 +18,15 @@ function loadCacheFromFile() {
   try {
     if (fs.existsSync(CACHE_FILE_PATH)) {
       const fileContent = fs.readFileSync(CACHE_FILE_PATH, 'utf-8');
+
+      // Skip empty or whitespace-only files
+      if (!fileContent || fileContent.trim().length === 0) {
+        console.log(
+          `[${new Date().toISOString()}] Cache file is empty, starting with fresh cache`
+        );
+        return;
+      }
+
       const cacheData = JSON.parse(fileContent);
 
       Object.entries(cacheData).forEach(([key, value]) => {
@@ -33,8 +42,9 @@ function loadCacheFromFile() {
   } catch (error) {
     console.error(
       `[${new Date().toISOString()}] Error loading cache from file:`,
-      error
+      error.message
     );
+    console.log(`[${new Date().toISOString()}] Starting with fresh cache`);
   }
 }
 
