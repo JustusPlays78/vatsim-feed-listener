@@ -1,48 +1,41 @@
-# Multi-stage build für optimierte Node.js App
+# Multi-stage build for production
 FROM node:18-alpine AS builder
 
-# Arbeitsverzeichnis setzen
+# Set working directory
 WORKDIR /app
 
-# Package files kopieren
+# Copy package files
 COPY package*.json ./
 
-# Dependencies installieren (neuere npm Syntax)
+# Install dependencies
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Production Stage
-FROM node:18-alpine
+# Copy source files
+COPY . .
 
-# Maintenance und Security Labels
-LABEL maintainer="VATSIM Flight Analyzer" \
-      version="1.0.0" \
-      description="Dockerized VATSIM Flight Data Analyzer with Node.js backend" \
-      org.opencontainers.image.source="https://github.com/JustusPlays78/vatsim-feed-listener"
+# Build application
+RUN npm run build
 
-# Non-root user erstellen
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodeapp -u 1001 -G nodejs
+# Production stage
+FROM nginx:alpine
 
-# App-Verzeichnis erstellen
-WORKDIR /app
+# Labels
+LABEL maintainer="VATSIM Flight Analyzer React" \
+      version="2.0.0" \
+      description="React-based VATSIM Flight Data Analyzer"
 
-# Dependencies kopieren
-COPY --from=builder --chown=nodeapp:nodejs /app/node_modules ./node_modules
+# Copy built files
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# App-Dateien kopieren
-COPY --chown=nodeapp:nodejs package*.json ./
-COPY --chown=nodeapp:nodejs server.js ./
-COPY --chown=nodeapp:nodejs public ./public
-
-# User wechseln
-USER nodeapp
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
 
-# Port exponieren
-EXPOSE 3000
+# Expose port
+EXPOSE 80
 
-# App starten
-CMD ["node", "server.js"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

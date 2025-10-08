@@ -1,0 +1,18 @@
+[
+  {
+    "version": "1.0.0",
+    "date": "2025-10-08",
+    "changes": {
+      "added": [
+        "Real-time VATSIM flight tracking with live data",
+        "VATSIM Events calendar with upcoming and past events",
+        "Event detail view with traffic statistics"
+      ],
+      "technical": [
+        "React 18.2 with TypeScript 5.2",
+        "Tailwind CSS 3.3 for modern UI",
+        "Express.js backend for API proxy"
+      ]
+    }
+  }
+]

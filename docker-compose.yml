@@ -1,28 +1,46 @@
 version: '3.8'
 
 services:
-  vatsim-flight-analyzer:
-    build: .
-    container_name: vatsim-flight-analyzer
-    ports:
-      - "9080:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
+  # Backend API Server
+  backend:
+    image: node:18-alpine
+    working_dir: /app
     volumes:
-      # Optional: Für lokale Entwicklung
-      - ./public:/app/public:ro
-      - ./server.js:/app/server.js:ro
+      - ./server-standalone:/app
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    command: node server.js
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
-    networks:
-      - web
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.vatsim-analyzer.rule=Host(`moehre.intjulscha.de`)"
-      - "traefik.http.routers.vatsim-analyzer.entrypoints=websecure"
-      - "traefik.http.routers.vatsim-analyzer.tls.certresolver=letsencrypt"
-      - "traefik.http.services.vatsim-analyzer.loadbalancer.server.port=3000"
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_BASE_URL=http://backend:3001/api
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
 
 networks:
-  web:
-    external: true
+  default:
+    name: vatsim-analyzer-network
