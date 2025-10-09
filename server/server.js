@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
@@ -12,6 +13,21 @@ const eventCache = new Map(); // key: event_id, value: { event, timestamp }
 const CACHE_RETENTION_HOURS = 72; // Keep past events for 72 hours (3 days)
 const CACHE_FILE_PATH = path.join(__dirname, 'event-cache.json');
 const VATSIM_EVENTS_URL = 'https://my.vatsim.net/api/v2/events/latest';
+
+// Response cache to avoid fetching events on every request
+let lastFetchTime = 0;
+let lastFetchedEvents = [];
+const RESPONSE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// VATSIM live data cache (pilots update every 15 seconds on VATSIM)
+let vatsimDataCache = null;
+let vatsimCacheTime = 0;
+const VATSIM_CACHE_DURATION = 30 * 1000; // 30 seconds
+
+// STATSIM cache (historical data doesn't change)
+const statsimCache = new Map(); // key: "from|to", value: { data, timestamp }
+const STATSIM_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const STATSIM_CACHE_MAX_SIZE = 50; // Keep last 50 queries
 
 // Load cache from file on startup
 function loadCacheFromFile() {
@@ -70,8 +86,116 @@ function saveCacheToFile() {
   }
 }
 
+// Fetch and cache events (used by API endpoint and background job)
+async function fetchAndCacheEvents() {
+  try {
+    console.log(
+      `[${new Date().toISOString()}] [CRON] Fetching VATSIM events for caching`
+    );
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(VATSIM_EVENTS_URL, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'VATSIM-Flight-Analyzer/1.0',
+      },
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.error(
+        `[${new Date().toISOString()}] [CRON] VATSIM Events API error: ${response.status}`
+      );
+      return null;
+    }
+
+    const data = await response.json();
+    const liveEvents = data.data || [];
+    const now = new Date();
+
+    // Cache ALL events (both live and upcoming) so we have them when they end
+    liveEvents.forEach((event) => {
+      const endTime = new Date(event.end_time);
+      const startTime = new Date(event.start_time);
+      const cacheEntry = eventCache.get(event.id);
+
+      // Cache events that:
+      // 1. Have started (live or past)
+      // 2. Will start within next 12 hours (upcoming events we want to track)
+      const twelveHoursFromNow = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+
+      if (
+        (startTime <= now || startTime <= twelveHoursFromNow) &&
+        !cacheEntry
+      ) {
+        eventCache.set(event.id, {
+          event,
+          timestamp: now.toISOString(),
+        });
+        console.log(
+          `[${new Date().toISOString()}] [CRON] Cached event: ${event.name} (${event.id}) - ${
+            startTime <= now ? 'LIVE/PAST' : 'UPCOMING'
+          }`
+        );
+      }
+      // Update cached events if they're still live (to get latest data)
+      else if (cacheEntry && endTime >= now) {
+        eventCache.set(event.id, {
+          event,
+          timestamp: cacheEntry.timestamp, // Keep original timestamp
+        });
+      }
+    });
+
+    // Clean old cache entries (older than 72 hours)
+    const retentionTime = CACHE_RETENTION_HOURS * 60 * 60 * 1000;
+    let removedCount = 0;
+    eventCache.forEach((value, key) => {
+      const cacheAge = now - new Date(value.timestamp);
+      if (cacheAge > retentionTime) {
+        eventCache.delete(key);
+        removedCount++;
+        console.log(
+          `[${new Date().toISOString()}] [CRON] Removed old cached event: ${key}`
+        );
+      }
+    });
+
+    // Save cache to file
+    saveCacheToFile();
+
+    console.log(
+      `[${new Date().toISOString()}] [CRON] Cache updated: ${eventCache.size} events total`
+    );
+
+    return liveEvents;
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] [CRON] Error fetching events:`,
+      error.message
+    );
+    return null;
+  }
+}
+
 // Load cache on startup
 loadCacheFromFile();
+
+// Start background job to fetch and cache events every 10 minutes
+const CACHE_UPDATE_INTERVAL = 10 * 60 * 1000; // 10 minutes
+setInterval(fetchAndCacheEvents, CACHE_UPDATE_INTERVAL);
+
+// Initial fetch on startup (after 10 seconds to let server start)
+setTimeout(() => {
+  console.log(
+    `[${new Date().toISOString()}] Starting initial background event fetch...`
+  );
+  fetchAndCacheEvents();
+}, 10000);
 
 // CORS configuration
 app.use(
@@ -81,6 +205,9 @@ app.use(
     credentials: true,
   })
 );
+
+// Enable gzip compression for all responses
+app.use(compression());
 
 app.use(express.json());
 
@@ -122,44 +249,65 @@ app.get('/api/flights', async (req, res) => {
       });
     }
 
-    console.log(`[${new Date().toISOString()}] Fetching flights for ${icao}`);
+    const now = Date.now();
+    const cacheAge = now - vatsimCacheTime;
 
-    // VATSIM only provides LIVE data via public API
-    // We'll fetch current pilots and filter by departure/arrival airport
-    const vatsimUrl = `${VATSIM_API_BASE}/vatsim-data.json`;
-
-    console.log(`[${new Date().toISOString()}] Requesting: ${vatsimUrl}`);
-
-    // Fetch from VATSIM API
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
-    const response = await fetch(vatsimUrl, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'VATSIM-Flight-Analyzer/2.0',
-      },
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.error(
-        `[${new Date().toISOString()}] VATSIM API error: ${response.status} ${
-          response.statusText
-        }`
+    // Check if we have recent cached VATSIM data
+    if (cacheAge < VATSIM_CACHE_DURATION && vatsimDataCache) {
+      console.log(
+        `[${new Date().toISOString()}] Using cached VATSIM data for ${icao} (${Math.round(
+          cacheAge / 1000
+        )}s old)`
       );
-      return res.status(response.status).json({
-        error: 'VATSIM API error',
-        message: `API returned ${response.status}: ${response.statusText}`,
+    } else {
+      console.log(
+        `[${new Date().toISOString()}] Fetching fresh VATSIM data for ${icao}`
+      );
+
+      // VATSIM only provides LIVE data via public API
+      const vatsimUrl = `${VATSIM_API_BASE}/vatsim-data.json`;
+
+      // Fetch from VATSIM API
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+      const response = await fetch(vatsimUrl, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'VATSIM-Flight-Analyzer/2.0',
+        },
       });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        console.error(
+          `[${new Date().toISOString()}] VATSIM API error: ${response.status} ${
+            response.statusText
+          }`
+        );
+
+        // If we have stale cache, use it as fallback
+        if (vatsimDataCache) {
+          console.log(
+            `[${new Date().toISOString()}] Using stale cache as fallback`
+          );
+        } else {
+          return res.status(response.status).json({
+            error: 'VATSIM API error',
+            message: `API returned ${response.status}: ${response.statusText}`,
+          });
+        }
+      } else {
+        // Update cache
+        vatsimDataCache = await response.json();
+        vatsimCacheTime = now;
+      }
     }
 
-    const vatsimData = await response.json();
-
     // Filter flights by departure or arrival ICAO
-    const flights = vatsimData.pilots.filter(
+    const flights = vatsimDataCache.pilots.filter(
       (pilot) =>
         pilot.flight_plan &&
         (pilot.flight_plan.departure === icao ||
@@ -225,6 +373,19 @@ app.get('/api/statsim/flights/dates', async (req, res) => {
       });
     }
 
+    // Check cache first
+    const cacheKey = `${from}|${to}`;
+    const cached = statsimCache.get(cacheKey);
+    const now = Date.now();
+
+    if (cached && now - cached.timestamp < STATSIM_CACHE_DURATION) {
+      const cacheAge = Math.round((now - cached.timestamp) / 1000);
+      console.log(
+        `[${new Date().toISOString()}] Using cached STATSIM data (${cacheAge}s old) for ${from} to ${to}`
+      );
+      return res.json(cached.data);
+    }
+
     console.log(
       `[${new Date().toISOString()}] Fetching STATSIM flights from ${from} to ${to}`
     );
@@ -255,6 +416,15 @@ app.get('/api/statsim/flights/dates', async (req, res) => {
           response.statusText
         }`
       );
+
+      // Return stale cache if available
+      if (cached) {
+        console.log(
+          `[${new Date().toISOString()}] Using stale cache as fallback`
+        );
+        return res.json(cached.data);
+      }
+
       return res.status(response.status).json({
         error: 'STATSIM API error',
         message: `API returned ${response.status}: ${response.statusText}`,
@@ -263,10 +433,22 @@ app.get('/api/statsim/flights/dates', async (req, res) => {
 
     const statsimData = await response.json();
 
+    // Cache the result
+    statsimCache.set(cacheKey, {
+      data: statsimData,
+      timestamp: now,
+    });
+
+    // Limit cache size (remove oldest entries)
+    if (statsimCache.size > STATSIM_CACHE_MAX_SIZE) {
+      const firstKey = statsimCache.keys().next().value;
+      statsimCache.delete(firstKey);
+    }
+
     console.log(
       `[${new Date().toISOString()}] Success: ${
         statsimData.length
-      } flights found`
+      } flights found (cached for 10min)`
     );
 
     res.json(statsimData);
@@ -290,120 +472,65 @@ app.get('/api/statsim/flights/dates', async (req, res) => {
 // Events endpoint with caching
 app.get('/api/events', async (req, res) => {
   try {
-    console.log(`[${new Date().toISOString()}] Fetching VATSIM events`);
+    const now = Date.now();
+    const cacheAge = now - lastFetchTime;
 
-    // Fetch fresh events from VATSIM
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
-    const response = await fetch(VATSIM_EVENTS_URL, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'VATSIM-Flight-Analyzer/1.0',
-      },
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.error(
-        `[${new Date().toISOString()}] VATSIM Events API error: ${
-          response.status
-        } ${response.statusText}`
+    // If we have recent data (less than 5 minutes old), return it immediately
+    if (cacheAge < RESPONSE_CACHE_DURATION && lastFetchedEvents.length > 0) {
+      console.log(
+        `[${new Date().toISOString()}] Serving cached response (${Math.round(
+          cacheAge / 1000
+        )}s old)`
       );
-      return res.status(response.status).json({
-        error: 'VATSIM Events API error',
-        message: `API returned ${response.status}: ${response.statusText}`,
-      });
+      return res.json({ data: lastFetchedEvents });
     }
 
-    const data = await response.json();
-    const liveEvents = data.data || [];
-    const now = new Date();
+    console.log(
+      `[${new Date().toISOString()}] Cache expired or empty, fetching fresh data`
+    );
 
-    // Cache ALL events (both live and upcoming) so we have them when they end
-    liveEvents.forEach((event) => {
-      const endTime = new Date(event.end_time);
-      const startTime = new Date(event.start_time);
-      const cacheEntry = eventCache.get(event.id);
+    // Fetch fresh events and update cache
+    const liveEvents = await fetchAndCacheEvents();
 
-      // Cache events that:
-      // 1. Have started (live or past)
-      // 2. Will start within next 12 hours (upcoming events we want to track)
-      const twelveHoursFromNow = new Date(now.getTime() + 12 * 60 * 60 * 1000);
-
-      if (
-        (startTime <= now || startTime <= twelveHoursFromNow) &&
-        !cacheEntry
-      ) {
-        eventCache.set(event.id, {
-          event,
-          timestamp: now.toISOString(),
-        });
-        console.log(
-          `[${new Date().toISOString()}] Cached event: ${event.name} (${
-            event.id
-          }) - ${startTime <= now ? 'LIVE/PAST' : 'UPCOMING'}`
-        );
+    // If fetch failed, use last known good data
+    if (!liveEvents) {
+      console.log(
+        `[${new Date().toISOString()}] Fetch failed, using last known data`
+      );
+      if (lastFetchedEvents.length > 0) {
+        return res.json({ data: lastFetchedEvents });
       }
-      // Update cached events if they're still live (to get latest data)
-      else if (cacheEntry && endTime >= now) {
-        eventCache.set(event.id, {
-          event,
-          timestamp: cacheEntry.timestamp, // Keep original timestamp
-        });
-      }
-    });
+      // No cached data at all, return empty
+      const cachedEvents = Array.from(eventCache.values()).map((v) => v.event);
+      return res.json({ data: cachedEvents });
+    }
 
-    // Clean old cache entries (older than 72 hours)
-    const retentionTime = CACHE_RETENTION_HOURS * 60 * 60 * 1000;
-    let removedCount = 0;
-    eventCache.forEach((value, key) => {
-      const cacheAge = now - new Date(value.timestamp);
-      if (cacheAge > retentionTime) {
-        eventCache.delete(key);
-        removedCount++;
-        console.log(
-          `[${new Date().toISOString()}] Removed old cached event: ${key}`
-        );
-      }
-    });
-
-    // Save cache to file periodically (every time we fetch events)
-    saveCacheToFile();
-
-    // Merge live events with cached events
+    // Merge live events with cached past events
     const cachedEvents = Array.from(eventCache.values()).map((v) => v.event);
-
-    // Separate into live (from API) and past (from cache only)
     const liveEventIds = new Set(liveEvents.map((e) => e.id));
     const pastOnlyEvents = cachedEvents.filter((e) => !liveEventIds.has(e.id));
-
-    // Combine all events (live from API + past from cache)
     const allEvents = [...liveEvents, ...pastOnlyEvents];
+
+    // Update response cache
+    lastFetchedEvents = allEvents;
+    lastFetchTime = now;
 
     console.log(
       `[${new Date().toISOString()}] Returning ${allEvents.length} events (${
         liveEvents.length
-      } live, ${pastOnlyEvents.length} past cached, ${eventCache.size} total in cache)`
+      } live, ${pastOnlyEvents.length} past cached)`
     );
 
     res.json({ data: allEvents });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error:`, error);
 
-    if (error.name === 'AbortError') {
-      return res.status(504).json({
-        error: 'Request timeout',
-        message: 'VATSIM Events API did not respond in time',
-      });
+    // Return last known good data or cached events as fallback
+    if (lastFetchedEvents.length > 0) {
+      return res.json({ data: lastFetchedEvents });
     }
-
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message,
-    });
+    const cachedEvents = Array.from(eventCache.values()).map((v) => v.event);
+    res.json({ data: cachedEvents });
   }
 });
 
