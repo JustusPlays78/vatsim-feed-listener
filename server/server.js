@@ -322,22 +322,37 @@ app.get('/api/events', async (req, res) => {
     const liveEvents = data.data || [];
     const now = new Date();
 
-    // Store events that just ended in cache
+    // Cache ALL events (both live and upcoming) so we have them when they end
     liveEvents.forEach((event) => {
       const endTime = new Date(event.end_time);
+      const startTime = new Date(event.start_time);
       const cacheEntry = eventCache.get(event.id);
 
-      // If event ended and not in cache yet, add it
-      if (endTime < now && !cacheEntry) {
+      // Cache events that:
+      // 1. Have started (live or past)
+      // 2. Will start within next 12 hours (upcoming events we want to track)
+      const twelveHoursFromNow = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+
+      if (
+        (startTime <= now || startTime <= twelveHoursFromNow) &&
+        !cacheEntry
+      ) {
         eventCache.set(event.id, {
           event,
           timestamp: now.toISOString(),
         });
         console.log(
-          `[${new Date().toISOString()}] Cached past event: ${event.name} (${
+          `[${new Date().toISOString()}] Cached event: ${event.name} (${
             event.id
-          })`
+          }) - ${startTime <= now ? 'LIVE/PAST' : 'UPCOMING'}`
         );
+      }
+      // Update cached events if they're still live (to get latest data)
+      else if (cacheEntry && endTime >= now) {
+        eventCache.set(event.id, {
+          event,
+          timestamp: cacheEntry.timestamp, // Keep original timestamp
+        });
       }
     });
 
@@ -355,32 +370,26 @@ app.get('/api/events', async (req, res) => {
       }
     });
 
-    // Save cache to file after cleanup if anything changed
-    if (
-      removedCount > 0 ||
-      liveEvents.some(
-        (e) => new Date(e.end_time) < now && !eventCache.get(e.id)
-      )
-    ) {
-      saveCacheToFile();
-    }
+    // Save cache to file periodically (every time we fetch events)
+    saveCacheToFile();
 
-    // Merge live events with cached past events
-    const pastEvents = Array.from(eventCache.values()).map((v) => v.event);
-    const allEvents = [...liveEvents, ...pastEvents];
+    // Merge live events with cached events
+    const cachedEvents = Array.from(eventCache.values()).map((v) => v.event);
 
-    // Remove duplicates (prefer live data)
-    const uniqueEvents = Array.from(
-      new Map(allEvents.map((e) => [e.id, e])).values()
-    );
+    // Separate into live (from API) and past (from cache only)
+    const liveEventIds = new Set(liveEvents.map((e) => e.id));
+    const pastOnlyEvents = cachedEvents.filter((e) => !liveEventIds.has(e.id));
+
+    // Combine all events (live from API + past from cache)
+    const allEvents = [...liveEvents, ...pastOnlyEvents];
 
     console.log(
-      `[${new Date().toISOString()}] Returning ${uniqueEvents.length} events (${
+      `[${new Date().toISOString()}] Returning ${allEvents.length} events (${
         liveEvents.length
-      } live, ${pastEvents.length} cached)`
+      } live, ${pastOnlyEvents.length} past cached, ${eventCache.size} total in cache)`
     );
 
-    res.json({ data: uniqueEvents });
+    res.json({ data: allEvents });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error:`, error);
 
