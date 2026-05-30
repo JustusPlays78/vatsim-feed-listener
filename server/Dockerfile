@@ -13,8 +13,8 @@ COPY package*.json ./
 # Install production dependencies
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy server code
-COPY server.js ./
+# Copy server code (server.js + event-config.js, separation-store.js, event-traffic.js)
+COPY *.js ./
 
 # Create directory for event cache
 RUN mkdir -p /app && touch /app/event-cache.json
