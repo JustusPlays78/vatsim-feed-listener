@@ -50,3 +50,99 @@ export interface FlightExport {
   metadata: ExportMetadata;
   flights: Flight[];
 }
+
+// --- Event Dashboard (Traffic + ATC coverage) ---
+
+export interface AirportTraffic {
+  icao: string;
+  name: string;
+  inboundAirborne: number;
+  inboundFar: number;
+  inboundPending: number;
+  arrived: number;
+  outboundAirborne: number;
+  outboundGround: number;
+}
+
+export interface EtaBucket {
+  label: string;
+  count: number;
+}
+
+export interface AtcPosition {
+  id: string;
+  label: string;
+  group: 'DEL/GND' | 'TWR' | 'APP' | 'CTR';
+  online: boolean;
+  callsign: string | null;
+  frequency: string | null;
+}
+
+export interface ExtraController {
+  callsign: string;
+  frequency: string;
+}
+
+export interface EventTrafficSummary {
+  inboundAirborne: number;
+  inboundFar: number;
+  inboundPending: number;
+  arrived: number;
+  outboundAirborne: number;
+  outboundGround: number;
+  prefiledInbound: number;
+  positionsOnline: number;
+  positionsTotal: number;
+  extraControllers: number;
+}
+
+export interface TrafficSample {
+  t: string;
+  inboundAirborne: number;
+  inboundPending: number;
+  arrived: number;
+  outbound: number;
+}
+
+export interface EventTraffic {
+  eventName: string;
+  updatedAt: string;
+  summary: EventTrafficSummary;
+  airports: AirportTraffic[];
+  etaBuckets: EtaBucket[];
+  atc: {
+    positions: AtcPosition[];
+    extraControllers: ExtraController[];
+  };
+  history: TrafficSample[];
+}
+
+// --- Separation / STU (fed by the EuroScope plugin) ---
+
+export interface SeparationEvent {
+  id: number;
+  a: string;
+  b: string;
+  source: string;
+  startedAt: string;
+  endedAt?: string;
+  lastSeen?: string;
+  durationSec: number;
+  minLateralNm: number;
+  minVerticalFt: number;
+  lastLateralNm: number;
+  lastVerticalFt: number;
+  samples: number;
+}
+
+export interface SeparationState {
+  pluginConnected: boolean;
+  lastIngestAt: string | null;
+  activeSources: string[];
+  stats: {
+    activeCount: number;
+    historyCount: number;
+  };
+  active: SeparationEvent[];
+  history: SeparationEvent[];
+}

@@ -1,4 +1,4 @@
-import { Plane, Moon, Sun, Github, Info, Radio, Calendar } from 'lucide-react';
+import { Plane, Moon, Sun, Github, Info, Radio, Calendar, Gauge } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useThemeStore } from '../store';
 import { Container } from './layout';
@@ -43,6 +43,15 @@ export default function Header() {
                 leftIcon={<Radio className="w-4 h-4" />}
               >
                 Live Flights
+              </Button>
+            </Link>
+            <Link to="/event">
+              <Button
+                variant={isActive('/event') ? 'primary' : 'ghost'}
+                size="sm"
+                leftIcon={<Gauge className="w-4 h-4" />}
+              >
+                Event Dashboard
               </Button>
             </Link>
             <Link to="/events">
@@ -121,6 +130,16 @@ export default function Header() {
               fullWidth
             >
               Live Flights
+            </Button>
+          </Link>
+          <Link to="/event" className="flex-1">
+            <Button
+              variant={isActive('/event') ? 'primary' : 'outline'}
+              size="sm"
+              leftIcon={<Gauge className="w-4 h-4" />}
+              fullWidth
+            >
+              Dashboard
             </Button>
           </Link>
           <Link to="/events" className="flex-1">

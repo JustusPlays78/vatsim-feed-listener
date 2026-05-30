@@ -14,6 +14,7 @@ import {
 
 // Lazy load pages for better performance
 const LiveFlightsPage = lazy(() => import('./pages/LiveFlightsPage'));
+const EventDashboardPage = lazy(() => import('./pages/EventDashboardPage'));
 const EventsPage = lazy(() => import('./pages/EventsPage'));
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
@@ -58,6 +59,7 @@ function App() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<LiveFlightsPage />} />
+            <Route path="/event" element={<EventDashboardPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/events/:id" element={<EventDetailPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />

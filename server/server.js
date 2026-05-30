@@ -4,6 +4,9 @@ const compression = require('compression');
 const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
+const eventConfig = require('./event-config');
+const separationStore = require('./separation-store');
+const eventTraffic = require('./event-traffic');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -185,6 +188,33 @@ async function fetchAndCacheEvents() {
 // Load cache on startup
 loadCacheFromFile();
 
+// Load STU history and start the sweep timer that closes stale conflicts
+separationStore.loadFromFile();
+setInterval(() => {
+  const closed = separationStore.sweep();
+  if (closed > 0) {
+    console.log(
+      `[${new Date().toISOString()}] [STU] Closed ${closed} separation event(s)`
+    );
+  }
+}, 5000);
+
+// Sample the event demand every 2 minutes for the dashboard's history chart
+const DEMAND_SAMPLE_INTERVAL = 2 * 60 * 1000;
+async function sampleDemand() {
+  try {
+    const data = await ensureVatsimData();
+    eventTraffic.recordSample(eventTraffic.computeEventTraffic(data).summary);
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] [DEMAND] Sample failed:`,
+      error.message
+    );
+  }
+}
+setInterval(sampleDemand, DEMAND_SAMPLE_INTERVAL);
+setTimeout(sampleDemand, 12000); // one initial sample after startup
+
 // Start background job to fetch and cache events every 10 minutes
 const CACHE_UPDATE_INTERVAL = 10 * 60 * 1000; // 10 minutes
 setInterval(fetchAndCacheEvents, CACHE_UPDATE_INTERVAL);
@@ -201,7 +231,7 @@ setTimeout(() => {
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    methods: ['GET'],
+    methods: ['GET', 'POST'],
     credentials: true,
   })
 );
@@ -467,6 +497,81 @@ app.get('/api/statsim/flights/dates', async (req, res) => {
       message: error.message,
     });
   }
+});
+
+// Ensure we have (reasonably fresh) live VATSIM data, reusing the same cache
+// as the /api/flights endpoint. Returns the parsed data feed or throws.
+async function ensureVatsimData() {
+  const now = Date.now();
+  if (now - vatsimCacheTime < VATSIM_CACHE_DURATION && vatsimDataCache) {
+    return vatsimDataCache;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  try {
+    const response = await fetch(`${VATSIM_API_BASE}/vatsim-data.json`, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'VATSIM-Flight-Analyzer/2.0',
+      },
+    });
+    if (!response.ok) {
+      if (vatsimDataCache) return vatsimDataCache; // stale fallback
+      throw new Error(`VATSIM API returned ${response.status}`);
+    }
+    vatsimDataCache = await response.json();
+    vatsimCacheTime = now;
+    return vatsimDataCache;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Event traffic + ATC coverage aggregation (logic in ./event-traffic.js)
+app.get('/api/event/traffic', async (req, res) => {
+  try {
+    const data = await ensureVatsimData();
+    const result = eventTraffic.computeEventTraffic(data);
+    res.json({ ...result, history: eventTraffic.getHistory() });
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] Event traffic error:`,
+      error.message
+    );
+    res.status(502).json({
+      error: 'Event traffic aggregation failed',
+      message: error.message,
+    });
+  }
+});
+
+// --- Separation (STU) ingest + state ---
+
+// The EuroScope plugin POSTs conflict snapshots here. Optional shared secret:
+// set INGEST_API_KEY in the environment and send it as the X-Api-Key header.
+app.post('/api/ingest', (req, res) => {
+  const requiredKey = process.env.INGEST_API_KEY;
+  if (requiredKey && req.get('X-Api-Key') !== requiredKey) {
+    return res.status(401).json({ error: 'Unauthorized', message: 'Invalid API key' });
+  }
+
+  const payload = req.body;
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({
+      error: 'Invalid payload',
+      message: 'Expected a JSON body with { source, conflicts: [] }',
+    });
+  }
+
+  const result = separationStore.ingest(payload);
+  res.json({ ok: true, ...result });
+});
+
+// Dashboard reads the current STU state (active + recent history) here.
+app.get('/api/separation', (req, res) => {
+  res.json(separationStore.getState());
 });
 
 // Events endpoint with caching
