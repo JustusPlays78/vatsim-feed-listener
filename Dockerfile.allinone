@@ -1,5 +1,5 @@
 # Multi-stage build - All-in-One Container
-FROM node:18-alpine AS builder
+FROM node:26-alpine AS builder
 
 # Build Frontend
 WORKDIR /app/frontend
